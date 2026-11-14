@@ -205,4 +205,6 @@ jobs:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
           files: release-assets/*
-          generate_release_notes: true
+          body: |
+            For detailed release notes and changelog, please see the upstream release:
+            https://github.com/YACReader/yacreader/releases/tag/${{ inputs.version }}
