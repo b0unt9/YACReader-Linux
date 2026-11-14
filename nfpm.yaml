@@ -1,4 +1,4 @@
-name: YACReader
+name: yacreader
 arch: ${ARCH}
 platform: linux
 version: ${VERSION}
@@ -27,7 +27,7 @@ overrides:
       - libqt6openglwidgets6
       - libqt6core5compat6
       - libqt6texttospeech6
-      - libpoppler-qt6-3
+      - libpoppler-qt6-3t64 | libpoppler-qt6-3
       - libarchive13t64 | libarchive13
       - qml6-module-qtqml
       - qml6-module-qtqml-workerscript
@@ -60,14 +60,3 @@ overrides:
       - qt6-qtspeech
       - poppler-qt6
       - libarchive
-  archlinux:
-    depends:
-      - qt6-base
-      - qt6-declarative
-      - qt6-multimedia
-      - qt6-svg
-      - qt6-5compat
-      - qt6-speech
-      - poppler-qt6
-      - libarchive
-      - sqlite

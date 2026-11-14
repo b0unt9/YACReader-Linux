@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build & Release Linux Packages
 
 on:
   workflow_dispatch:
@@ -18,59 +18,81 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu / Debian (.deb)
+          # Ubuntu 24.04 / 26.04
+          - distro: ubuntu-24.04
+            image: ubuntu:24.04
+            pkg_type: deb
+            arch: amd64
+            runner: ubuntu-26.04
+          - distro: ubuntu-24.04
+            image: ubuntu:24.04
+            pkg_type: deb
+            arch: arm64
+            runner: ubuntu-26.04-arm
           - distro: ubuntu-26.04
             image: ubuntu:26.04
             pkg_type: deb
-            pkg_ext: deb
             arch: amd64
             runner: ubuntu-26.04
           - distro: ubuntu-26.04
             image: ubuntu:26.04
             pkg_type: deb
-            pkg_ext: deb
             arch: arm64
             runner: ubuntu-26.04-arm
 
-          # Fedora (.rpm)
+          # Debian 12 / 13
+          - distro: debian-12
+            image: debian:12
+            pkg_type: deb
+            arch: amd64
+            runner: ubuntu-26.04
+          - distro: debian-12
+            image: debian:12
+            pkg_type: deb
+            arch: arm64
+            runner: ubuntu-26.04-arm
+          - distro: debian-13
+            image: debian:13
+            pkg_type: deb
+            arch: amd64
+            runner: ubuntu-26.04
+          - distro: debian-13
+            image: debian:13
+            pkg_type: deb
+            arch: arm64
+            runner: ubuntu-26.04-arm
+
+          # Fedora 43 / 44
           - distro: fedora-43
             image: fedora:43
             pkg_type: rpm
-            pkg_ext: rpm
             arch: amd64
             runner: ubuntu-26.04
           - distro: fedora-43
             image: fedora:43
             pkg_type: rpm
-            pkg_ext: rpm
+            arch: arm64
+            runner: ubuntu-26.04-arm
+          - distro: fedora-44
+            image: fedora:44
+            pkg_type: rpm
+            arch: amd64
+            runner: ubuntu-26.04
+          - distro: fedora-44
+            image: fedora:44
+            pkg_type: rpm
             arch: arm64
             runner: ubuntu-26.04-arm
 
-          # Alpine (.apk)
+          # Alpine Linux
           - distro: alpine
             image: alpine:latest
             pkg_type: apk
-            pkg_ext: apk
             arch: amd64
             runner: ubuntu-26.04
           - distro: alpine
             image: alpine:latest
             pkg_type: apk
-            pkg_ext: apk
-            arch: arm64
-            runner: ubuntu-26.04-arm
-
-          # Arch Linux (.pkg.tar.zst)
-          - distro: archlinux
-            image: archlinux:latest
-            pkg_type: archlinux
-            pkg_ext: pkg.tar.zst
-            arch: amd64
-            runner: ubuntu-26.04
-          - distro: archlinux
-            image: lopsided/archlinux:latest
-            pkg_type: archlinux
-            pkg_ext: pkg.tar.zst
             arch: arm64
             runner: ubuntu-26.04-arm
 
@@ -106,12 +128,6 @@ jobs:
                 qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qttools-dev \
                 qt6-qtshadertools-dev qt6-qt5compat-dev qt6-qtspeech-dev \
                 poppler-qt6-dev libarchive-dev
-            elif [ "${{ matrix.pkg_type }}" = "archlinux" ]; then
-              pacman -Syu --noconfirm --needed \
-                base-devel cmake git pkgconf curl tar \
-                qt6-base qt6-declarative qt6-multimedia qt6-svg \
-                qt6-tools qt6-shadertools qt6-5compat qt6-speech \
-                poppler-qt6 libarchive sqlite
             fi
 
             curl -L "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
@@ -130,12 +146,12 @@ jobs:
             $(go env GOPATH)/bin/nfpm pkg \
             --config nfpm.yaml \
             --packager ${{ matrix.pkg_type }} \
-            --target dist/YACReader_${{ inputs.version }}_${{ matrix.distro }}_${{ matrix.arch }}.${{ matrix.pkg_ext }}
+            --target dist/yacreader_${{ inputs.version }}_${{ matrix.distro }}_${{ matrix.arch }}.${{ matrix.pkg_type }}
 
       - name: Upload Package Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: YACReader-${{ matrix.distro }}-${{ matrix.arch }}
+          name: yacreader-${{ matrix.distro }}-${{ matrix.arch }}
           path: dist/*
           retention-days: 1
 
@@ -146,9 +162,42 @@ jobs:
       - name: Download all package artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: YACReader-*
+          pattern: yacreader-*
           path: release-assets
           merge-multiple: true
+
+      - name: Generate Arch Linux PKGBUILD
+        run: |
+          VERSION="${{ inputs.version }}"
+          TARBALL_URL="https://github.com/YACReader/yacreader/archive/refs/tags/${VERSION}.tar.gz"
+          SHA256=$(curl -sL "${TARBALL_URL}" | sha256sum | awk '{print $1}')
+
+          cat <<EOF > release-assets/PKGBUILD
+          # Maintainer: b0unt9
+          pkgname=yacreader
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc="Yet another comic reader"
+          arch=('x86_64' 'aarch64')
+          url="https://www.yacreader.com/"
+          license=('GPL-3.0-only')
+          depends=('qt6-base' 'qt6-declarative' 'qt6-multimedia' 'qt6-svg' 'qt6-5compat' 'qt6-speech' 'poppler-qt6' 'libarchive' 'sqlite')
+          makedepends=('cmake' 'git' 'qt6-tools' 'qt6-shadertools')
+          source=("\${pkgname}-\${pkgver}.tar.gz::${TARBALL_URL}")
+          sha256sums=('${SHA256}')
+
+          build() {
+            cmake -B build -S "\${pkgname}-\${pkgver}" \\
+              -DCMAKE_BUILD_TYPE=Release \\
+              -DCMAKE_INSTALL_PREFIX=/usr \\
+              -DDECOMPRESSION_BACKEND=libarchive
+            cmake --build build
+          }
+
+          package() {
+            DESTDIR="\${pkgdir}" cmake --install build
+          }
+          EOF
 
       - name: Create Release and Upload Packages
         uses: softprops/action-gh-release@v2
