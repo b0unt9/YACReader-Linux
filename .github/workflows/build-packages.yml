@@ -172,6 +172,9 @@ jobs:
               curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
               tar -xzf source.tar.gz
               cd yacreader-*
+              if [ "${{ matrix.distro }}" = "debian-12" ]; then
+                sed -i 's/};/};\ntemplate<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;/' common/overloaded.h
+              fi
               cmake -B build ${COMPILER_FLAGS} \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=/opt/yacreader \
