@@ -8,6 +8,10 @@ on:
         required: true
         type: string
 
+env:
+  BUNDLED_QT_VERSION: "6.11.0"
+  POPPLER_VERSION: "25.02.0"
+
 permissions:
   contents: write
   packages: write
@@ -18,27 +22,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu 24.04 / 26.04
+          # Ubuntu 24.04
           - distro: ubuntu-24.04
             image: ubuntu:24.04
             pkg_type: deb
             arch: amd64
             runner: ubuntu-26.04
+            bundle_qt: true
           - distro: ubuntu-24.04
             image: ubuntu:24.04
             pkg_type: deb
             arch: arm64
             runner: ubuntu-26.04-arm
-          - distro: ubuntu-26.04
-            image: ubuntu:26.04
-            pkg_type: deb
-            arch: amd64
-            runner: ubuntu-26.04
-          - distro: ubuntu-26.04
-            image: ubuntu:26.04
-            pkg_type: deb
-            arch: arm64
-            runner: ubuntu-26.04-arm
+            bundle_qt: true
 
           # Debian 12 / 13
           - distro: debian-12
@@ -46,21 +42,33 @@ jobs:
             pkg_type: deb
             arch: amd64
             runner: ubuntu-26.04
-          - distro: debian-12
-            image: debian:12
-            pkg_type: deb
-            arch: arm64
-            runner: ubuntu-26.04-arm
+            bundle_qt: true
           - distro: debian-13
             image: debian:13
             pkg_type: deb
             arch: amd64
             runner: ubuntu-26.04
+            bundle_qt: true
           - distro: debian-13
             image: debian:13
             pkg_type: deb
             arch: arm64
             runner: ubuntu-26.04-arm
+            bundle_qt: true
+
+          # Ubuntu 26.04
+          - distro: ubuntu-26.04
+            image: ubuntu:26.04
+            pkg_type: deb
+            arch: amd64
+            runner: ubuntu-26.04
+            bundle_qt: false
+          - distro: ubuntu-26.04
+            image: ubuntu:26.04
+            pkg_type: deb
+            arch: arm64
+            runner: ubuntu-26.04-arm
+            bundle_qt: false
 
           # Fedora 43 / 44
           - distro: fedora-43
@@ -68,21 +76,25 @@ jobs:
             pkg_type: rpm
             arch: amd64
             runner: ubuntu-26.04
+            bundle_qt: false
           - distro: fedora-43
             image: fedora:43
             pkg_type: rpm
             arch: arm64
             runner: ubuntu-26.04-arm
+            bundle_qt: false
           - distro: fedora-44
             image: fedora:44
             pkg_type: rpm
             arch: amd64
             runner: ubuntu-26.04
+            bundle_qt: false
           - distro: fedora-44
             image: fedora:44
             pkg_type: rpm
             arch: arm64
             runner: ubuntu-26.04-arm
+            bundle_qt: false
 
           # Alpine Linux
           - distro: alpine
@@ -90,11 +102,13 @@ jobs:
             pkg_type: apk
             arch: amd64
             runner: ubuntu-26.04
+            bundle_qt: false
           - distro: alpine
             image: alpine:latest
             pkg_type: apk
             arch: arm64
             runner: ubuntu-26.04-arm
+            bundle_qt: false
 
     runs-on: ${{ matrix.runner }}
     steps:
@@ -103,48 +117,119 @@ jobs:
 
       - name: Build YACReader in ${{ matrix.distro }} (${{ matrix.arch }})
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace ${{ matrix.image }} sh -c '
+          docker run --rm \
+            -e BUNDLED_QT_VERSION="${{ env.BUNDLED_QT_VERSION }}" \
+            -e POPPLER_VERSION="${{ env.POPPLER_VERSION }}" \
+            -v ${{ github.workspace }}:/workspace ${{ matrix.image }} sh -c '
             set -e
-            if [ "${{ matrix.pkg_type }}" = "deb" ]; then
+            if [ "${{ matrix.bundle_qt }}" = "true" ]; then
               export DEBIAN_FRONTEND=noninteractive
               apt-get update -qq
               apt-get install -y -qq --no-install-recommends \
-                build-essential cmake git pkg-config curl ca-certificates \
-                qt6-base-dev qt6-base-private-dev qt6-declarative-dev \
-                qt6-multimedia-dev qt6-svg-dev qt6-tools-dev qt6-l10n-tools \
-                qt6-shadertools-dev libqt6opengl6-dev libqt6core5compat6-dev \
-                libqt6sql6-sqlite qt6-speech-dev libpoppler-qt6-dev libarchive-dev
-            elif [ "${{ matrix.pkg_type }}" = "rpm" ]; then
-              dnf install -y -q \
-                gcc-c++ cmake git pkgconf-pkg-config curl tar \
-                qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
-                qt6-qtmultimedia-devel qt6-qtsvg-devel qt6-qttools-devel \
-                qt6-qtshadertools-devel qt6-qt5compat-devel qt6-qtspeech-devel \
-                poppler-qt6-devel libarchive-devel
-            elif [ "${{ matrix.pkg_type }}" = "apk" ]; then
-              apk add --no-cache \
-                build-base cmake git pkgconf curl tar \
-                qt6-qtbase-dev qt6-qtbase-private-dev qt6-qtdeclarative-dev \
-                qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qttools-dev \
-                qt6-qtshadertools-dev qt6-qt5compat-dev qt6-qtspeech-dev \
-                poppler-qt6-dev libarchive-dev
-            fi
+                build-essential cmake ninja-build git pkg-config curl ca-certificates xz-utils \
+                python3 python3-pip libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev \
+                libarchive-dev libsqlite3-dev libfreetype-dev libfontconfig-dev \
+                libjpeg-dev libopenjp2-7-dev libpng-dev libtiff-dev liblcms2-dev zlib1g-dev \
+                libdbus-1-dev libpulse-dev libasound2-dev libssl-dev
 
-            curl -L "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
-            tar -xzf source.tar.gz
-            cd yacreader-*
-            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DDECOMPRESSION_BACKEND=libarchive
-            cmake --build build --parallel $(nproc)
-            DESTDIR=/workspace/build_out cmake --install build
+              pip3 install --break-system-packages -q aqtinstall
+              mkdir -p /opt/yacreader /tmp/qt
+              if [ "${{ matrix.arch }}" = "amd64" ]; then
+                aqt install-qt linux desktop "${BUNDLED_QT_VERSION}" linux_gcc_64 \
+                  -m qtmultimedia qtshadertools qt5compat qtspeech -O /tmp/qt
+                mv "/tmp/qt/${BUNDLED_QT_VERSION}/gcc_64" /opt/yacreader/qt6
+              else
+                aqt install-qt linux_arm64 desktop "${BUNDLED_QT_VERSION}" linux_gcc_arm64 \
+                  -m qtmultimedia qtshadertools qt5compat qtspeech -O /tmp/qt
+                mv "/tmp/qt/${BUNDLED_QT_VERSION}/gcc_arm64" /opt/yacreader/qt6
+              fi
+              rm -rf /tmp/qt
+
+              # Build poppler-qt6 against bundled Qt 6.11
+              curl -sL "https://poppler.freedesktop.org/poppler-${POPPLER_VERSION}.tar.xz" -o poppler.tar.xz
+              tar -xJf poppler.tar.xz
+              cmake -G Ninja -B poppler-build -S "poppler-${POPPLER_VERSION}" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/opt/yacreader/qt6 \
+                -DCMAKE_PREFIX_PATH=/opt/yacreader/qt6 \
+                -DCMAKE_INSTALL_RPATH=/opt/yacreader/qt6/lib \
+                -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+                -DENABLE_QT6=ON -DENABLE_QT5=OFF -DENABLE_GLIB=OFF \
+                -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_BOOST=OFF \
+                -DENABLE_GPGME=OFF -DENABLE_NSS3=OFF \
+                -DBUILD_GTK_TESTS=OFF -DBUILD_QT6_TESTS=OFF \
+                -DBUILD_CPP_TESTS=OFF -DBUILD_MANUAL_TESTS=OFF
+              cmake --build poppler-build --parallel $(nproc)
+              cmake --install poppler-build
+
+              # Build YACReader
+              curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
+              tar -xzf source.tar.gz
+              cd yacreader-*
+              cmake -B build -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/opt/yacreader \
+                -DCMAKE_PREFIX_PATH=/opt/yacreader/qt6 \
+                -DCMAKE_INSTALL_RPATH=/opt/yacreader/qt6/lib \
+                -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+                -DDECOMPRESSION_BACKEND=libarchive
+              cmake --build build --parallel $(nproc)
+              DESTDIR=/workspace/build_out cmake --install build
+
+              # Copy stripped runtime Qt6 & configure qt.conf
+              rm -rf /opt/yacreader/qt6/include /opt/yacreader/qt6/lib/cmake \
+                     /opt/yacreader/qt6/lib/pkgconfig /opt/yacreader/qt6/doc \
+                     /opt/yacreader/qt6/metatypes /opt/yacreader/qt6/lib/*.a
+              cp -a /opt/yacreader/qt6 /workspace/build_out/opt/yacreader/qt6
+              mkdir -p /workspace/build_out/usr
+              mv /workspace/build_out/opt/yacreader/share /workspace/build_out/usr/share
+              printf "[Paths]\nPrefix = /opt/yacreader/qt6\nPlugins = plugins\nQmlImports = qml\n" > /workspace/build_out/opt/yacreader/bin/qt.conf
+
+            else
+              if [ "${{ matrix.pkg_type }}" = "deb" ]; then
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -qq
+                apt-get install -y -qq --no-install-recommends \
+                  build-essential cmake git pkg-config curl ca-certificates \
+                  qt6-base-dev qt6-base-private-dev qt6-declarative-dev \
+                  qt6-multimedia-dev qt6-svg-dev qt6-tools-dev qt6-l10n-tools \
+                  qt6-shadertools-dev libqt6opengl6-dev libqt6core5compat6-dev \
+                  libqt6sql6-sqlite qt6-speech-dev libpoppler-qt6-dev libarchive-dev
+              elif [ "${{ matrix.pkg_type }}" = "rpm" ]; then
+                dnf install -y -q \
+                  gcc-c++ cmake git pkgconf-pkg-config curl tar \
+                  qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
+                  qt6-qtmultimedia-devel qt6-qtsvg-devel qt6-qttools-devel \
+                  qt6-qtshadertools-devel qt6-qt5compat-devel qt6-qtspeech-devel \
+                  poppler-qt6-devel libarchive-devel
+              elif [ "${{ matrix.pkg_type }}" = "apk" ]; then
+                apk add --no-cache \
+                  build-base cmake git pkgconf curl tar \
+                  qt6-qtbase-dev qt6-qtbase-private-dev qt6-qtdeclarative-dev \
+                  qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qttools-dev \
+                  qt6-qtshadertools-dev qt6-qt5compat-dev qt6-qtspeech-dev \
+                  poppler-qt6-dev libarchive-dev
+              fi
+
+              curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
+              tar -xzf source.tar.gz
+              cd yacreader-*
+              cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DDECOMPRESSION_BACKEND=libarchive
+              cmake --build build --parallel $(nproc)
+              DESTDIR=/workspace/build_out cmake --install build
+            fi
           '
 
       - name: Install nfpm and Package
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
           mkdir -p dist
+          CONFIG_FILE="nfpm.yaml"
+          if [ "${{ matrix.bundle_qt }}" = "true" ]; then
+            CONFIG_FILE="nfpm-bundled.yaml"
+          fi
           VERSION="${{ inputs.version }}" ARCH="${{ matrix.arch }}" \
             $(go env GOPATH)/bin/nfpm pkg \
-            --config nfpm.yaml \
+            --config "${CONFIG_FILE}" \
             --packager ${{ matrix.pkg_type }} \
             --target dist/yacreader_${{ inputs.version }}_${{ matrix.distro }}_${{ matrix.arch }}.${{ matrix.pkg_type }}
 
@@ -204,7 +289,7 @@ jobs:
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
-          files: release-assets/*
           body: |
             For detailed release notes and changelog, please see the upstream release:
             https://github.com/YACReader/yacreader/releases/tag/${{ inputs.version }}
+          files: release-assets/*
