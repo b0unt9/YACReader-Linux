@@ -173,7 +173,7 @@ jobs:
               tar -xzf source.tar.gz
               cd yacreader-*
               if [ "${{ matrix.distro }}" = "debian-12" ]; then
-                sed -i 's/};/};\ntemplate<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;/' common/overloaded.h
+                sed -i "s/};/};\ntemplate<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;/" common/overloaded.h
               fi
               cmake -B build ${COMPILER_FLAGS} \
                 -DCMAKE_BUILD_TYPE=Release \
