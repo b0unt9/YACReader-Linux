@@ -156,7 +156,7 @@ jobs:
                 -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
                 -DENABLE_QT6=ON -DENABLE_QT5=OFF -DENABLE_GLIB=OFF \
                 -DENABLE_CPP=OFF -DENABLE_UTILS=OFF -DENABLE_BOOST=OFF \
-                -DENABLE_GPGME=OFF -DENABLE_NSS3=OFF \
+                -DENABLE_GPGME=OFF -DENABLE_NSS3=OFF -DENABLE_LIBCURL=OFF \
                 -DBUILD_GTK_TESTS=OFF -DBUILD_QT6_TESTS=OFF \
                 -DBUILD_CPP_TESTS=OFF -DBUILD_MANUAL_TESTS=OFF
               cmake --build poppler-build --parallel $(nproc)
