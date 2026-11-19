@@ -132,6 +132,12 @@ jobs:
                 libjpeg-dev libopenjp2-7-dev libpng-dev libtiff-dev liblcms2-dev zlib1g-dev \
                 libdbus-1-dev libpulse-dev libasound2-dev libssl-dev
 
+              COMPILER_FLAGS=""
+              if [ "${{ matrix.distro }}" = "debian-12" ]; then
+                apt-get install -y -qq --no-install-recommends clang-15
+                COMPILER_FLAGS="-DCMAKE_C_COMPILER=clang-15 -DCMAKE_CXX_COMPILER=clang++-15"
+              fi
+
               pip3 install --break-system-packages -q aqtinstall
               mkdir -p /opt/yacreader /tmp/qt
               if [ "${{ matrix.arch }}" = "amd64" ]; then
@@ -149,6 +155,7 @@ jobs:
               curl -sL "https://poppler.freedesktop.org/poppler-${POPPLER_VERSION}.tar.xz" -o poppler.tar.xz
               tar -xJf poppler.tar.xz
               cmake -G Ninja -B poppler-build -S "poppler-${POPPLER_VERSION}" \
+                ${COMPILER_FLAGS} \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=/opt/yacreader/qt6 \
                 -DCMAKE_PREFIX_PATH=/opt/yacreader/qt6 \
@@ -166,7 +173,8 @@ jobs:
               curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
               tar -xzf source.tar.gz
               cd yacreader-*
-              cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              cmake -B build ${COMPILER_FLAGS} \
+                -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=/opt/yacreader \
                 -DCMAKE_PREFIX_PATH=/opt/yacreader/qt6 \
                 -DCMAKE_INSTALL_RPATH=/opt/yacreader/qt6/lib \
