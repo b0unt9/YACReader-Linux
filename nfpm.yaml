@@ -11,7 +11,8 @@ license: GPL-3.0-only
 
 contents:
   - src: ./build_out/usr/
-    dst: /usr/
+    dst: /usr
+    type: tree
 
 overrides:
   deb:

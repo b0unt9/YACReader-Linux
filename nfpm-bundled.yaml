@@ -11,9 +11,11 @@ license: GPL-3.0-only
 
 contents:
   - src: ./build_out/opt/yacreader/
-    dst: /opt/yacreader/
+    dst: /opt/yacreader
+    type: tree
   - src: ./build_out/usr/share/
-    dst: /usr/share/
+    dst: /usr/share
+    type: tree
   - src: /opt/yacreader/bin/YACReader
     dst: /usr/bin/YACReader
     type: symlink
