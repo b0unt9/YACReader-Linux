@@ -155,7 +155,6 @@ jobs:
               curl -sL "https://poppler.freedesktop.org/poppler-${POPPLER_VERSION}.tar.xz" -o poppler.tar.xz
               tar -xJf poppler.tar.xz
               cmake -G Ninja -B poppler-build -S "poppler-${POPPLER_VERSION}" \
-                ${COMPILER_FLAGS} \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=/opt/yacreader/qt6 \
                 -DCMAKE_PREFIX_PATH=/opt/yacreader/qt6 \
@@ -169,7 +168,7 @@ jobs:
               cmake --build poppler-build --parallel $(nproc)
               cmake --install poppler-build
 
-              # Build YACReader
+              # Build YACReader (use clang-15 on debian-12)
               curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
               tar -xzf source.tar.gz
               cd yacreader-*
