@@ -280,10 +280,14 @@ jobs:
           if [ "${{ matrix.bundle_qt }}" = "true" ]; then
             CONFIG_FILE="nfpm-bundled.yaml"
           fi
+          PACKAGER="${{ matrix.pkg_type }}"
+          if [ "${PACKAGER}" = "pkg.tar.zst" ]; then
+            PACKAGER="archlinux"
+          fi
           VERSION="${{ inputs.version }}" ARCH="${{ matrix.arch }}" \
             $(go env GOPATH)/bin/nfpm pkg \
             --config "${CONFIG_FILE}" \
-            --packager ${{ matrix.pkg_type }} \
+            --packager "${PACKAGER}" \
             --target dist/yacreader_${{ inputs.version }}_${{ matrix.distro }}_${{ matrix.arch }}.${{ matrix.pkg_type }}
 
       - name: Upload Package Artifact
