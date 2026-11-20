@@ -253,11 +253,18 @@ jobs:
                 sed -i "s/^CheckSpace/#CheckSpace/" /etc/pacman.conf
                 sed -i "s/^#DisableSandbox/DisableSandbox/" /etc/pacman.conf
                 grep -q "^DisableSandbox" /etc/pacman.conf || sed -i "/^\[options\]/a DisableSandbox" /etc/pacman.conf
+                sed -i "s/^#DisableDownloadTimeout/DisableDownloadTimeout/" /etc/pacman.conf
+                grep -q "^DisableDownloadTimeout" /etc/pacman.conf || sed -i "/^\[options\]/a DisableDownloadTimeout" /etc/pacman.conf
+                sed -i "s/^#*ParallelDownloads.*/ParallelDownloads = 2/" /etc/pacman.conf
+
                 if [ "${{ matrix.arch }}" = "arm64" ]; then
+                  sed -i "1i Server = http://fl.us.mirror.archlinuxarm.org/\$arch/\$repo\nServer = http://ca.us.mirror.archlinuxarm.org/\$arch/\$repo" /etc/pacman.d/mirrorlist
                   pacman-key --init
                   pacman-key --populate archlinuxarm
+                  pacman -Qsq "^linux-(aarch64|firmware)" | xargs -r pacman -Rdd --noconfirm || true
                 fi
-                pacman -Syu --noconfirm --needed --ignore linux-aarch64,linux-firmware \
+
+                pacman -Syu --noconfirm --needed \
                   base-devel cmake git pkgconf curl tar \
                   qt6-base qt6-declarative qt6-multimedia qt6-svg qt6-tools \
                   qt6-shadertools qt6-5compat qt6-speech poppler-qt6 libarchive
