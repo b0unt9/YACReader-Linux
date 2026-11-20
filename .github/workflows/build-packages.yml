@@ -148,6 +148,11 @@ jobs:
             -e POPPLER_VERSION="${{ env.POPPLER_VERSION }}" \
             -v ${{ github.workspace }}:/workspace ${{ matrix.image }} sh -c '
             set -e
+            if grep -q "^ID=ubuntu" /etc/os-release 2>/dev/null; then
+              sed -i "s@archive.ubuntu.com@azure.archive.ubuntu.com@g" /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
+              sed -i "s@security.ubuntu.com@azure.archive.ubuntu.com@g" /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
+              printf "Acquire::Retries \"3\";\nAcquire::http::Timeout \"15\";\n" > /etc/apt/apt.conf.d/80-retries
+            fi
             if [ "${{ matrix.bundle_qt }}" = "true" ]; then
               export DEBIAN_FRONTEND=noninteractive
               apt-get update -qq
