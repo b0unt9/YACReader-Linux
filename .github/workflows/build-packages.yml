@@ -15,6 +15,8 @@ env:
 permissions:
   contents: write
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-package:
@@ -328,6 +330,37 @@ jobs:
           }
           EOF
 
+      - name: Generate Checksums and Record Immutable Build Manifest
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "## Release Build Manifest (Tamper-Evident Record)"
+            echo ""
+            echo "- **Version:** \`${{ inputs.version }}\`"
+            echo "- **Recorded At (UTC):** \`${TIMESTAMP}\`"
+            echo "- **Workflow Commit:** \`${{ github.sha }}\`"
+            echo "- **Workflow Run:** ${RUN_URL}"
+            echo ""
+            echo "| File Name | Size (Bytes) | SHA-256 | File Timestamp (UTC) |"
+            echo "| :--- | ---: | :--- | :--- |"
+            for file in *; do
+              [ -f "$file" ] || continue
+              HASH=$(sha256sum "$file" | awk '{print $1}')
+              SIZE=$(stat -c%s "$file")
+              FILE_TIME=$(date -u -r "$file" +"%Y-%m-%d %H:%M:%S UTC")
+              echo "| \`${file}\` | ${SIZE} | \`${HASH}\` | ${FILE_TIME} |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest Build Provenance
+        if: github.event.repository.private == false
+        uses: actions/attest@v4
+        with:
+          subject-path: 'release-assets/*'
+
       - name: Create Release and Upload Packages
         uses: softprops/action-gh-release@v2
         with:
@@ -336,4 +369,9 @@ jobs:
           body: |
             For detailed release notes and changelog, please see the upstream release:
             https://github.com/YACReader/yacreader/releases/tag/${{ inputs.version }}
+
+            ---
+            **Build Verification:**
+            Verify file SHA-256 hashes and timestamps against the immutable GitHub Actions run record:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           files: release-assets/*
