@@ -110,10 +110,34 @@ jobs:
             runner: ubuntu-26.04-arm
             bundle_qt: false
 
+          # Arch Linux
+          - distro: archlinux
+            image: archlinux:latest
+            pkg_type: pkg.tar.zst
+            arch: amd64
+            runner: ubuntu-26.04
+            bundle_qt: false
+          - distro: archlinux
+            image: archlinuxarm:local
+            pkg_type: pkg.tar.zst
+            arch: arm64
+            runner: ubuntu-26.04-arm
+            bundle_qt: false
+
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+      
+      - name: Bootstrap Arch Linux ARM Docker Image
+        if: matrix.distro == 'archlinux' && matrix.arch == 'arm64'
+        run: |
+          mkdir -p /tmp/alarm
+          curl -sL "http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz" -o /tmp/alarm.tar.gz
+          sudo tar -xzf /tmp/alarm.tar.gz -C /tmp/alarm
+          sudo rm -f /tmp/alarm/etc/resolv.conf
+          sudo tar -c -C /tmp/alarm . | docker import - archlinuxarm:local
+          sudo rm -rf /tmp/alarm /tmp/alarm.tar.gz
 
       - name: Build YACReader in ${{ matrix.distro }} (${{ matrix.arch }})
         run: |
@@ -194,7 +218,6 @@ jobs:
               mkdir -p /workspace/build_out/usr
               mv /workspace/build_out/opt/yacreader/share /workspace/build_out/usr/share
               printf "[Paths]\nPrefix = /opt/yacreader/qt6\nPlugins = plugins\nQmlImports = qml\n" > /workspace/build_out/opt/yacreader/bin/qt.conf
-
             else
               if [ "${{ matrix.pkg_type }}" = "deb" ]; then
                 export DEBIAN_FRONTEND=noninteractive
@@ -219,6 +242,16 @@ jobs:
                   qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qttools-dev \
                   qt6-qtshadertools-dev qt6-qt5compat-dev qt6-qtspeech-dev \
                   poppler-qt6-dev libarchive-dev
+              elif [ "${{ matrix.pkg_type }}" = "pkg.tar.zst" ]; then
+                sed -i "s/^CheckSpace/#CheckSpace/" /etc/pacman.conf
+                if [ "${{ matrix.arch }}" = "arm64" ]; then
+                  pacman-key --init
+                  pacman-key --populate archlinuxarm
+                fi
+                pacman -Syu --noconfirm --needed --ignore linux-aarch64,linux-firmware \
+                  base-devel cmake git pkgconf curl tar \
+                  qt6-base qt6-declarative qt6-multimedia qt6-svg qt6-tools \
+                  qt6-shadertools qt6-5compat qt6-speech poppler-qt6 libarchive
               fi
 
               curl -sL "https://github.com/YACReader/yacreader/archive/refs/tags/${{ inputs.version }}.tar.gz" -o source.tar.gz
@@ -268,7 +301,7 @@ jobs:
           TARBALL_URL="https://github.com/YACReader/yacreader/archive/refs/tags/${VERSION}.tar.gz"
           SHA256=$(curl -sL "${TARBALL_URL}" | sha256sum | awk '{print $1}')
 
-          cat <<EOF > release-assets/PKGBUILD
+          cat <<EOF > "release-assets/yacreader_${VERSION}_archlinux.PKGBUILD"
           # Maintainer: b0unt9
           pkgname=yacreader
           pkgver=${VERSION}

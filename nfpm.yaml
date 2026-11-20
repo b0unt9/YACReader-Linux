@@ -61,3 +61,14 @@ overrides:
       - qt6-qtspeech
       - poppler-qt6
       - libarchive
+  archlinux:
+    depends:
+      - qt6-base
+      - qt6-declarative
+      - qt6-multimedia
+      - qt6-svg
+      - qt6-5compat
+      - qt6-speech
+      - poppler-qt6
+      - libarchive
+      - sqlite
